@@ -37,6 +37,7 @@ func initRouting(e *echo.Echo) {
 	e.GET("/api/todo/:todoId", getTodoByID)
 	e.POST("/api/todo/add", addTodo)
 	e.POST("/api/todo/updateIsDone", updateTodoIsDone)
+	e.POST("/api/todo/deleteTodoByID", deleteTodoByID)
 }
 
 func getUsers(c echo.Context) error {
@@ -59,7 +60,7 @@ func getUsers(c echo.Context) error {
 }
 
 func getMember(c echo.Context) error {
-	db, err := sql.Open("mysql", "root:waiting2@/todo")
+	db, err := sql.Open("mysql", "root@/todo")
 
 	if err != nil {
 		log.Fatal(err)
@@ -68,7 +69,7 @@ func getMember(c echo.Context) error {
 	println("open ok.")
 	var id int
 	var name string
-	rows, err := db.Query("SELECT * FROM member")
+	rows, err := db.Query("SELECT * FROM members")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -92,29 +93,33 @@ func getMember(c echo.Context) error {
 
 // Todo struct
 type Todo struct {
-	Id        int
-	Title     string
-	IsDone    int
-	Detail    string
-	CreatedAt string
-	UpdatedAt string
+	Id        int    `db:"id" json:"id"`
+	Title     string `db:"title" json:"title"`
+	IsDone    int    `db:"is_done" json:"isDone"`
+	Detail    string `db:"detail" json:"detail"`
+	CreatedAt string `db:"created_at" json:"createdAt"`
+	UpdatedAt string `db:"updated_at" json:"updatedAt"`
 }
 
 type SctIsDone struct {
-	id     int
-	isDone bool
+	ID     int  `db:"id" json:"id"`
+	IsDone bool `db:"is_done" json:isDone`
+}
+
+type SctDeleteTodo struct {
+	ID int `db:"id" json:"id"`
 }
 
 func getTodoByID(c echo.Context) error {
 	todoId := c.Param("todoId")
 	// println("todoId", todoId)
 
-	db, err := sql.Open("mysql", "root:waiting2@/todo")
+	db, err := sql.Open("mysql", "root@/todo")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	row, err := db.Query("SELECT * FROM todos WHERE id = ?", todoId)
+	row, err := db.Query("SELECT * FROM todo_list WHERE id = ?", todoId)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -155,13 +160,15 @@ func getTodoByID(c echo.Context) error {
 // FIXME errorの返り値これであってるのかな
 func getTodos(c echo.Context) error {
 	// TODO 環境ごとに.envに持たせる(localなのでこれは現状大丈夫かなと・・)
-	db, err := sql.Open("mysql", "root:waiting2@/todo")
+	db, err := sql.Open("mysql", "root@/todo")
+	// db, err := sql.Open("mysql", "root:root@tcp(mysql:3306)/GoLife")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	rows, err := db.Query("SELECT * FROM todos")
+	rows, err := db.Query("SELECT * FROM todo_list")
 	if err != nil {
+		println("getTodos 2")
 		log.Fatal(err)
 	}
 	todos := []Todo{}
@@ -198,36 +205,76 @@ func getTodos(c echo.Context) error {
 	return c.JSON(http.StatusOK, todos)
 }
 
-func addTodo(c echo.Context) error {
-	db, err := sql.Open("mysql", "root:waiting2@/todo")
+func addTodo(c echo.Context) (err error) {
+	t := new(Todo)
+
+	if err = c.Bind(t); err != nil {
+		println("bindnotoko")
+		return err
+	}
+	title := t.Title
+	detail := t.Detail
+
+	db, err := sql.Open("mysql", "root@/todo")
+	println("addtodo")
+	if err != nil {
+		println("opennotoko")
+		log.Fatal(err)
+	}
+	defer db.Close()
+	ins, err := db.Prepare("INSERT INTO todo_list (title, detail) VALUES (?, ?)")
+	if err != nil {
+		println("dbnotoko")
+		log.Fatal(err)
+	}
+	ins.Exec(title, detail)
+
+	// res := getTodos(c)
+	return c.JSON(http.StatusOK, true)
+}
+
+func deleteTodoByID(c echo.Context) (err error) {
+	println("start deleteTodoByID")
+	t := new(SctDeleteTodo)
+	if err = c.Bind(t); err != nil {
+		return err
+	}
+	todoID := t.ID
+
+	db, err := sql.Open("mysql", "root@/todo")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	ins, err := db.Prepare("INSERT INTO todos (title, isDone, detail) VALUES (?, ?, ?)")
-	if err != nil {
-		log.Fatal(err)
-	}
-	ins.Exec("a", 0, "b")
+
+	dlt, err := db.Prepare("DELETE FROM todo_list WHERE id = ?;")
+	dlt.Exec(todoID)
 
 	res := getTodos(c)
+	println(res)
 	return c.JSON(http.StatusOK, res)
 }
 
-func updateTodoIsDone(c echo.Context) error {
-	todoID := c.Param("id")
-	isDone := c.Param("isDone")
+func updateTodoIsDone(c echo.Context) (err error) {
+	s := new(SctIsDone)
+	if err = c.Bind(s); err != nil {
+		println(s)
+		return err
+	}
+	todoID := s.ID
+	isDone := s.IsDone
 
-	db, err := sql.Open("mysql", "root:waiting2@/todo")
+	db, err := sql.Open("mysql", "root@/todo")
 	if err != nil {
 		log.Fatal(err)
 	}
-	println("todoID: ", todoID, "isDone: ", isDone)
 	defer db.Close()
-	upd, err := db.Prepare("UPDATE todos SET isDone = ? where id = ?")
+
+	upd, err := db.Prepare("UPDATE todo_list SET is_done = ? where id = ?")
 	if err != nil {
 		log.Fatal(err)
 	}
 	upd.Exec(isDone, todoID)
+
 	return c.JSON(http.StatusOK, "success")
 }
