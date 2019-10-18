@@ -25,6 +25,25 @@ type Member struct {
 	Name string
 }
 
+// Todo struct
+type Todo struct {
+	Id        int    `db:"id" json:"id"`
+	Title     string `db:"title" json:"title"`
+	IsDone    int    `db:"is_done" json:"isDone"`
+	Detail    string `db:"detail" json:"detail"`
+	CreatedAt string `db:"created_at" json:"createdAt"`
+	UpdatedAt string `db:"updated_at" json:"updatedAt"`
+}
+
+type SctIsDone struct {
+	ID     int  `db:"id" json:"id"`
+	IsDone bool `db:"is_done" json:isDone`
+}
+
+type SctDeleteTodo struct {
+	ID int `db:"id" json:"id"`
+}
+
 func main() {
 	e := echo.New()
 	initRouting(e)
@@ -38,6 +57,7 @@ func initRouting(e *echo.Echo) {
 	e.POST("/api/todo/add", addTodo)
 	e.POST("/api/todo/updateIsDone", updateTodoIsDone)
 	e.POST("/api/todo/deleteTodoByID", deleteTodoByID)
+	e.POST("/api/todo/updateTodoByID", updateTodoByID)
 }
 
 func getUsers(c echo.Context) error {
@@ -89,25 +109,6 @@ func getMember(c echo.Context) error {
 		})
 	}
 	return c.JSON(http.StatusOK, members)
-}
-
-// Todo struct
-type Todo struct {
-	Id        int    `db:"id" json:"id"`
-	Title     string `db:"title" json:"title"`
-	IsDone    int    `db:"is_done" json:"isDone"`
-	Detail    string `db:"detail" json:"detail"`
-	CreatedAt string `db:"created_at" json:"createdAt"`
-	UpdatedAt string `db:"updated_at" json:"updatedAt"`
-}
-
-type SctIsDone struct {
-	ID     int  `db:"id" json:"id"`
-	IsDone bool `db:"is_done" json:isDone`
-}
-
-type SctDeleteTodo struct {
-	ID int `db:"id" json:"id"`
 }
 
 func getTodoByID(c echo.Context) error {
@@ -253,6 +254,33 @@ func deleteTodoByID(c echo.Context) (err error) {
 	res := getTodos(c)
 	println(res)
 	return c.JSON(http.StatusOK, res)
+}
+
+func updateTodoByID(c echo.Context) (err error) {
+	t := new(Todo)
+	if err = c.Bind(t); err != nil {
+		return err
+	}
+	id := t.Id
+	title := t.Title
+	isDone := t.IsDone
+	detail := t.Detail
+
+	db, err := sql.Open("mysql", "root@/todo")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	upd, err := db.Prepare(`
+		UPDATE todo_list SET title = ?, is_done = ?, detail = ? where id = ?
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	upd.Exec(title, isDone, detail, id)
+
+	return c.JSON(http.StatusOK, "success")
 }
 
 func updateTodoIsDone(c echo.Context) (err error) {
