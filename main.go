@@ -229,9 +229,7 @@ func addTodo(c echo.Context) (err error) {
 		log.Fatal(err)
 	}
 	ins.Exec(title, detail)
-
-	// res := getTodos(c)
-	return c.JSON(http.StatusOK, true)
+	return getTodos(c)
 }
 
 func deleteTodoByID(c echo.Context) (err error) {
@@ -250,10 +248,7 @@ func deleteTodoByID(c echo.Context) (err error) {
 
 	dlt, err := db.Prepare("DELETE FROM todo_list WHERE id = ?;")
 	dlt.Exec(todoID)
-
-	res := getTodos(c)
-	println(res)
-	return c.JSON(http.StatusOK, res)
+	return getTodos(c)
 }
 
 func updateTodoByID(c echo.Context) (err error) {
@@ -280,7 +275,7 @@ func updateTodoByID(c echo.Context) (err error) {
 	}
 	upd.Exec(title, isDone, detail, id)
 
-	return c.JSON(http.StatusOK, "success")
+	return getTodos(c)
 }
 
 func updateTodoIsDone(c echo.Context) (err error) {
@@ -303,6 +298,5 @@ func updateTodoIsDone(c echo.Context) (err error) {
 		log.Fatal(err)
 	}
 	upd.Exec(isDone, todoID)
-
-	return c.JSON(http.StatusOK, "success")
+	return getTodos(c)
 }
